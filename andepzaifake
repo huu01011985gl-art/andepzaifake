@@ -1,0 +1,544 @@
+-- AnDepZaiHub Beta - Script Hub cho Roblox
+-- Khôi phục từ phiên bản obfuscated
+
+local AnDepZaiHub = {}
+
+-- Các hàm tiện ích
+local function setupEnvironment()
+    local libraries = {}
+    
+    libraries.network = {
+        send = function(data)
+            -- Gửi dữ liệu mạng
+        end,
+        receive = function()
+            -- Nhận dữ liệu mạng
+        end
+    }
+    
+    libraries.ui = {
+        createWindow = function(title, size)
+            -- Tạo cửa sổ UI
+            local window = {}
+            return window
+        end,
+        createButton = function(text, callback)
+            -- Tạo nút bấm
+            return {}
+        end,
+        createToggle = function(text, default, callback)
+            -- Tạo toggle
+            return {}
+        end,
+        createSlider = function(text, min, max, default, callback)
+            -- Tạo thanh trượt
+            return {}
+        end,
+        createDropdown = function(text, options, default, callback)
+            -- Tạo dropdown
+            return {}
+        end,
+        createLabel = function(text)
+            -- Tạo label
+            return {}
+        end
+    }
+    
+    libraries.utils = {
+        getPlayer = function(name)
+            return game.Players:FindFirstChild(name)
+        end,
+        getLocalPlayer = function()
+            return game.Players.LocalPlayer
+        end,
+        getCharacter = function(player)
+            return player.Character
+        end,
+        getHumanoid = function(character)
+            return character and character:FindFirstChild("Humanoid")
+        end,
+        teleport = function(position)
+            local char = libraries.utils.getCharacter(libraries.utils.getLocalPlayer())
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(position)
+            end
+        end,
+        isAlive = function(player)
+            local char = libraries.utils.getCharacter(player)
+            local hum = char and char:FindFirstChild("Humanoid")
+            return hum and hum.Health > 0
+        end
+    }
+    
+    return libraries
+end
+
+-- Khởi tạo các tính năng
+local function initFeatures(libs)
+    local features = {}
+    
+    -- Feature 1: Tự động farm
+    features.autoFarm = {
+        enabled = false,
+        target = nil,
+        farmRange = 50,
+        
+        start = function(self)
+            self.enabled = true
+            spawn(function()
+                while self.enabled do
+                    if self.target and libs.utils.isAlive(self.target) then
+                        local char = libs.utils.getCharacter(libs.utils.getLocalPlayer())
+                        local targetChar = libs.utils.getCharacter(self.target)
+                        if char and targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+                            local distance = (char.HumanoidRootPart.Position - targetChar.HumanoidRootPart.Position).Magnitude
+                            if distance <= self.farmRange then
+                                -- Tấn công
+                                local args = {
+                                    [1] = targetChar.HumanoidRootPart
+                                }
+                                game:GetService("ReplicatedStorage"):WaitForChild("Attack"):FireServer(unpack(args))
+                            else
+                                -- Di chuyển đến mục tiêu
+                                libs.utils.teleport(targetChar.HumanoidRootPart.Position)
+                            end
+                        end
+                    else
+                        -- Tìm mục tiêu mới
+                        for _, player in ipairs(game.Players:GetPlayers()) do
+                            if player ~= libs.utils.getLocalPlayer() and libs.utils.isAlive(player) then
+                                self.target = player
+                                break
+                            end
+                        end
+                    end
+                    wait(0.1)
+                end
+            end)
+        end,
+        
+        stop = function(self)
+            self.enabled = false
+            self.target = nil
+        end
+    }
+    
+    -- Feature 2: Tốc độ
+    features.speed = {
+        enabled = false,
+        speedValue = 32,
+        
+        start = function(self)
+            self.enabled = true
+            local player = libs.utils.getLocalPlayer()
+            local char = player.Character
+            local humanoid = char and char:FindFirstChild("Humanoid")
+            
+            if humanoid then
+                spawn(function()
+                    while self.enabled and humanoid and humanoid.Parent do
+                        humanoid.WalkSpeed = self.speedValue
+                        wait(0.1)
+                    end
+                end)
+            end
+        end,
+        
+        stop = function(self)
+            self.enabled = false
+            local player = libs.utils.getLocalPlayer()
+            local char = player.Character
+            local humanoid = char and char:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = 16
+            end
+        end,
+        
+        setSpeed = function(self, value)
+            self.speedValue = value
+            if self.enabled then
+                local player = libs.utils.getLocalPlayer()
+                local char = player.Character
+                local humanoid = char and char:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = self.speedValue
+                end
+            end
+        end
+    }
+    
+    -- Feature 3: Nhảy cao
+    features.jumpPower = {
+        enabled = false,
+        powerValue = 70,
+        
+        start = function(self)
+            self.enabled = true
+            local player = libs.utils.getLocalPlayer()
+            local char = player.Character
+            local humanoid = char and char:FindFirstChild("Humanoid")
+            
+            if humanoid then
+                spawn(function()
+                    while self.enabled and humanoid and humanoid.Parent do
+                        humanoid.JumpPower = self.powerValue
+                        wait(0.1)
+                    end
+                end)
+            end
+        end,
+        
+        stop = function(self)
+            self.enabled = false
+            local player = libs.utils.getLocalPlayer()
+            local char = player.Character
+            local humanoid = char and char:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.JumpPower = 50
+            end
+        end,
+        
+        setPower = function(self, value)
+            self.powerValue = value
+            if self.enabled then
+                local player = libs.utils.getLocalPlayer()
+                local char = player.Character
+                local humanoid = char and char:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = self.powerValue
+                end
+            end
+        end
+    }
+    
+    -- Feature 4: Bắn tia (ESP)
+    features.esp = {
+        enabled = false,
+        boxes = {},
+        
+        start = function(self)
+            self.enabled = true
+            spawn(function()
+                while self.enabled do
+                    for _, player in ipairs(game.Players:GetPlayers()) do
+                        if player ~= libs.utils.getLocalPlayer() and libs.utils.isAlive(player) then
+                            local char = player.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                if not self.boxes[player.Name] then
+                                    -- Tạo box ESP
+                                    local billboard = Instance.new("BillboardGui")
+                                    billboard.Name = "ESP_" .. player.Name
+                                    billboard.Adornee = char.HumanoidRootPart
+                                    billboard.Size = UDim2.new(0, 100, 0, 50)
+                                    billboard.StudsOffset = Vector3.new(0, 2, 0)
+                                    billboard.AlwaysOnTop = true
+                                    
+                                    local label = Instance.new("TextLabel")
+                                    label.Text = player.Name .. "\n" .. math.floor(char.Humanoid.Health) .. " HP"
+                                    label.TextColor3 = Color3.new(1, 0, 0)
+                                    label.BackgroundTransparency = 0.5
+                                    label.Size = UDim2.new(1, 0, 1, 0)
+                                    label.Parent = billboard
+                                    
+                                    billboard.Parent = char.HumanoidRootPart
+                                    self.boxes[player.Name] = billboard
+                                else
+                                    -- Cập nhật thông tin
+                                    local billboard = self.boxes[player.Name]
+                                    local label = billboard:FindFirstChild("TextLabel")
+                                    if label and char.Humanoid then
+                                        label.Text = player.Name .. "\n" .. math.floor(char.Humanoid.Health) .. " HP"
+                                    end
+                                end
+                            end
+                        else
+                            if self.boxes[player.Name] then
+                                self.boxes[player.Name]:Destroy()
+                                self.boxes[player.Name] = nil
+                            end
+                        end
+                    end
+                    wait(0.1)
+                end
+            end)
+        end,
+        
+        stop = function(self)
+            self.enabled = false
+            for _, box in pairs(self.boxes) do
+                pcall(function() box:Destroy() end)
+            end
+            self.boxes = {}
+        end
+    }
+    
+    return features
+end
+
+-- Khởi tạo UI
+local function initUI(libs, features)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AnDepZaiHub"
+    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 400, 0, 500)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    titleBar.Parent = mainFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Text = "An Dep Zai Hub"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Size = UDim2.new(1, 0, 1, 0)
+    title.BackgroundTransparency = 1
+    title.Parent = titleBar
+    
+    local closeButton = Instance.new("TextButton")
+    closeButton.Text = "X"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.Size = UDim2.new(0, 40, 1, 0)
+    closeButton.Position = UDim2.new(1, -40, 0, 0)
+    closeButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+    closeButton.Parent = titleBar
+    closeButton.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+    
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, 0, 1, -40)
+    scrollFrame.Position = UDim2.new(0, 0, 0, 40)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.ScrollBarThickness = 8
+    scrollFrame.Parent = mainFrame
+    
+    local uiList = Instance.new("UIListLayout")
+    uiList.Padding = UDim.new(0, 10)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Parent = scrollFrame
+    
+    -- Auto Farm
+    local autoFarmFrame = Instance.new("Frame")
+    autoFarmFrame.Size = UDim2.new(1, -20, 0, 50)
+    autoFarmFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    autoFarmFrame.Parent = scrollFrame
+    
+    local autoFarmLabel = Instance.new("TextLabel")
+    autoFarmLabel.Text = "Auto Farm"
+    autoFarmLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    autoFarmLabel.Size = UDim2.new(0, 100, 1, 0)
+    autoFarmLabel.Position = UDim2.new(0, 10, 0, 0)
+    autoFarmLabel.BackgroundTransparency = 1
+    autoFarmLabel.TextXAlignment = Enum.TextXAlignment.Left
+    autoFarmLabel.Parent = autoFarmFrame
+    
+    local autoFarmToggle = Instance.new("TextButton")
+    autoFarmToggle.Text = "OFF"
+    autoFarmToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    autoFarmToggle.Size = UDim2.new(0, 60, 0, 30)
+    autoFarmToggle.Position = UDim2.new(1, -70, 0.5, -15)
+    autoFarmToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    autoFarmToggle.Parent = autoFarmFrame
+    
+    local farmRangeSlider = Instance.new("TextBox")
+    farmRangeSlider.Text = "50"
+    farmRangeSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
+    farmRangeSlider.Size = UDim2.new(0, 60, 0, 30)
+    farmRangeSlider.Position = UDim2.new(1, -140, 0.5, -15)
+    farmRangeSlider.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    farmRangeSlider.Parent = autoFarmFrame
+    
+    local farmRangeEnabled = false
+    autoFarmToggle.MouseButton1Click:Connect(function()
+        if not features.autoFarm.enabled then
+            features.autoFarm:start()
+            autoFarmToggle.Text = "ON"
+            autoFarmToggle.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+            farmRangeEnabled = true
+        else
+            features.autoFarm:stop()
+            autoFarmToggle.Text = "OFF"
+            autoFarmToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+            farmRangeEnabled = false
+        end
+    end)
+    
+    farmRangeSlider.FocusLost:Connect(function()
+        local value = tonumber(farmRangeSlider.Text)
+        if value and value > 0 then
+            features.autoFarm.farmRange = value
+        end
+    end)
+    
+    -- Speed
+    local speedFrame = Instance.new("Frame")
+    speedFrame.Size = UDim2.new(1, -20, 0, 50)
+    speedFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    speedFrame.Parent = scrollFrame
+    
+    local speedLabel = Instance.new("TextLabel")
+    speedLabel.Text = "Speed"
+    speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedLabel.Size = UDim2.new(0, 100, 1, 0)
+    speedLabel.Position = UDim2.new(0, 10, 0, 0)
+    speedLabel.BackgroundTransparency = 1
+    speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+    speedLabel.Parent = speedFrame
+    
+    local speedToggle = Instance.new("TextButton")
+    speedToggle.Text = "OFF"
+    speedToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedToggle.Size = UDim2.new(0, 60, 0, 30)
+    speedToggle.Position = UDim2.new(1, -70, 0.5, -15)
+    speedToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    speedToggle.Parent = speedFrame
+    
+    local speedValue = Instance.new("TextBox")
+    speedValue.Text = "32"
+    speedValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedValue.Size = UDim2.new(0, 60, 0, 30)
+    speedValue.Position = UDim2.new(1, -140, 0.5, -15)
+    speedValue.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    speedValue.Parent = speedFrame
+    
+    speedToggle.MouseButton1Click:Connect(function()
+        if not features.speed.enabled then
+            local val = tonumber(speedValue.Text) or 32
+            features.speed:setSpeed(val)
+            features.speed:start()
+            speedToggle.Text = "ON"
+            speedToggle.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        else
+            features.speed:stop()
+            speedToggle.Text = "OFF"
+            speedToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        end
+    end)
+    
+    speedValue.FocusLost:Connect(function()
+        local val = tonumber(speedValue.Text)
+        if val and val > 0 then
+            features.speed:setSpeed(val)
+        end
+    end)
+    
+    -- Jump Power
+    local jumpFrame = Instance.new("Frame")
+    jumpFrame.Size = UDim2.new(1, -20, 0, 50)
+    jumpFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    jumpFrame.Parent = scrollFrame
+    
+    local jumpLabel = Instance.new("TextLabel")
+    jumpLabel.Text = "Jump Power"
+    jumpLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    jumpLabel.Size = UDim2.new(0, 100, 1, 0)
+    jumpLabel.Position = UDim2.new(0, 10, 0, 0)
+    jumpLabel.BackgroundTransparency = 1
+    jumpLabel.TextXAlignment = Enum.TextXAlignment.Left
+    jumpLabel.Parent = jumpFrame
+    
+    local jumpToggle = Instance.new("TextButton")
+    jumpToggle.Text = "OFF"
+    jumpToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    jumpToggle.Size = UDim2.new(0, 60, 0, 30)
+    jumpToggle.Position = UDim2.new(1, -70, 0.5, -15)
+    jumpToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    jumpToggle.Parent = jumpFrame
+    
+    local jumpValue = Instance.new("TextBox")
+    jumpValue.Text = "70"
+    jumpValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+    jumpValue.Size = UDim2.new(0, 60, 0, 30)
+    jumpValue.Position = UDim2.new(1, -140, 0.5, -15)
+    jumpValue.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    jumpValue.Parent = jumpFrame
+    
+    jumpToggle.MouseButton1Click:Connect(function()
+        if not features.jumpPower.enabled then
+            local val = tonumber(jumpValue.Text) or 70
+            features.jumpPower:setPower(val)
+            features.jumpPower:start()
+            jumpToggle.Text = "ON"
+            jumpToggle.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        else
+            features.jumpPower:stop()
+            jumpToggle.Text = "OFF"
+            jumpToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        end
+    end)
+    
+    jumpValue.FocusLost:Connect(function()
+        local val = tonumber(jumpValue.Text)
+        if val and val > 0 then
+            features.jumpPower:setPower(val)
+        end
+    end)
+    
+    -- ESP
+    local espFrame = Instance.new("Frame")
+    espFrame.Size = UDim2.new(1, -20, 0, 50)
+    espFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    espFrame.Parent = scrollFrame
+    
+    local espLabel = Instance.new("TextLabel")
+    espLabel.Text = "ESP"
+    espLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    espLabel.Size = UDim2.new(0, 100, 1, 0)
+    espLabel.Position = UDim2.new(0, 10, 0, 0)
+    espLabel.BackgroundTransparency = 1
+    espLabel.TextXAlignment = Enum.TextXAlignment.Left
+    espLabel.Parent = espFrame
+    
+    local espToggle = Instance.new("TextButton")
+    espToggle.Text = "OFF"
+    espToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    espToggle.Size = UDim2.new(0, 60, 0, 30)
+    espToggle.Position = UDim2.new(1, -70, 0.5, -15)
+    espToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    espToggle.Parent = espFrame
+    
+    espToggle.MouseButton1Click:Connect(function()
+        if not features.esp.enabled then
+            features.esp:start()
+            espToggle.Text = "ON"
+            espToggle.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        else
+            features.esp:stop()
+            espToggle.Text = "OFF"
+            espToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        end
+    end)
+    
+    -- Cập nhật CanvasSize
+    uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 20)
+    end)
+    
+    return screenGui
+end
+
+-- Khởi chạy script
+local function start()
+    local libraries = setupEnvironment()
+    local features = initFeatures(libraries)
+    local gui = initUI(libraries, features)
+    
+    return {
+        libraries = libraries,
+        features = features,
+        gui = gui
+    }
+end
+
+-- Chạy script
+local hub = start()
+print("AnDepZaiHub đã được khởi tạo!")
